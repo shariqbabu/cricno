@@ -4,6 +4,8 @@
     <color name="bg_dark">#0B0F19</color>
     <color name="bg_card">#161B26</color>
     <color name="bg_surface">#1F2937</color>
+    <color name="bg_search">#1E2430</color>
+    <color name="border_subtle">#2D3748</color>
     <color name="primary">#3B82F6</color>
     <color name="primary_variant">#2563EB</color>
     <color name="accent_red">#E11D48</color>
