@@ -38,8 +38,6 @@ jobs:
           CHANNEL_4_URL: ${{ secrets.CHANNEL_4_URL }}
           CHANNEL_5_NAME: ${{ secrets.CHANNEL_5_NAME }}
           CHANNEL_5_URL: ${{ secrets.CHANNEL_5_URL }}
-          CHANNEL_6_NAME: ${{ secrets.CHANNEL_6_NAME }}
-          CHANNEL_6_URL: ${{ secrets.CHANNEL_6_URL }}
           CHANNELS_JSON: ${{ secrets.CHANNELS_JSON }}
         run: |
           ./gradlew assembleDebug assembleRelease --stacktrace
