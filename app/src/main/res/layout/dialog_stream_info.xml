@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_bottom_sheet"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_drag_handle" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Live Stream Extracted Details"
+        android:textColor="@color/text_primary"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvInfoChannelName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/primary"
+        android:textSize="14sp"
+        tools:text="Star Sports 1 HD" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="12dp"
+        android:background="@color/divider_color" />
+
+    <!-- Stream URL Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Extracted .m3u8 Stream URL:"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tvExtractedStreamUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_pill_status"
+        android:fontFamily="monospace"
+        android:padding="10dp"
+        android:textColor="@color/accent_green"
+        android:textIsSelectable="true"
+        android:textSize="12sp"
+        tools:text="https://cdn.example.com/live/star4b/playlist.m3u8?token=xyz" />
+
+    <Button
+        android:id="@+id/btnCopyStreamUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_button_primary"
+        android:text="Copy Stream URL"
+        android:textColor="@color/white" />
+
+    <!-- Referer Header Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:text="Referer Header Required:"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/tvExtractedReferer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_pill_status"
+        android:fontFamily="monospace"
+        android:padding="10dp"
+        android:textColor="@color/text_primary"
+        android:textIsSelectable="true"
+        android:textSize="12sp"
+        tools:text="https://playsza.xyz/" />
+
+    <Button
+        android:id="@+id/btnCopyReferer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_button_primary"
+        android:text="Copy Referer Header"
+        android:textColor="@color/white" />
+
+    <Button
+        android:id="@+id/btnCloseStreamInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/bg_card_item"
+        android:text="Close"
+        android:textColor="@color/text_secondary" />
+
+</LinearLayout>

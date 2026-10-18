@@ -1,0 +1,24 @@
+# Local configuration for LiveStream Pro
+# When testing locally, you can specify your channel embed URLs here.
+# In GitHub Actions, configure these in repository Settings -> Secrets and variables -> Actions.
+
+CHANNEL_1_NAME=Star Sports 1 HD
+CHANNEL_1_URL=http://playsza.zu/uembed.php?id=star4b
+
+CHANNEL_2_NAME=Star Sports 1 Hindi HD
+CHANNEL_2_URL=http://playsza.zu/uembed.php?id=starhindi
+
+CHANNEL_3_NAME=Star Sports 2 HD
+CHANNEL_3_URL=http://playsza.zu/uembed.php?id=star2
+
+CHANNEL_4_NAME=Sony Sports Ten 1 HD
+CHANNEL_4_URL=http://playsza.zu/uembed.php?id=sony1
+
+CHANNEL_5_NAME=Willow Cricket HD
+CHANNEL_5_URL=http://playsza.zu/uembed.php?id=willow
+
+CHANNEL_6_NAME=DD Sports 1.0 HD
+CHANNEL_6_URL=http://playsza.zu/uembed.php?id=ddsports
+
+# Optional: You can also pass a full JSON array of custom channels via CHANNELS_JSON:
+# CHANNELS_JSON=[{"id":"ch1","name":"Star Sports 1 HD","embedUrl":"http://playsza.zu/uembed.php?id=star4b","category":"Sports","quality":"1080p HD"}]

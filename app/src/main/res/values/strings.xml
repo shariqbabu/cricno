@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiveStream Pro</string>
+    <string name="live_badge">LIVE</string>
+    <string name="extracting_stream">Extracting live stream in background…</string>
+    <string name="tap_to_play">Tap channel to start live playback</string>
+    <string name="channels_header">Live Sports Channels</string>
+    <string name="edit_channels">Edit Channels</string>
+    <string name="stream_details">Stream Details</string>
+</resources>

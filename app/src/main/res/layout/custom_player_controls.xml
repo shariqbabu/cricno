@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_player_gradient">
+
+    <!-- Top Overlay Bar -->
+    <LinearLayout
+        android:id="@+id/playerTopBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
+
+        <!-- Live Badge -->
+        <TextView
+            android:id="@+id/tvPlayerLiveBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_live_badge"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="LIVE"
+            android:textColor="@color/white"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <!-- Playing Channel Title -->
+        <TextView
+            android:id="@+id/tvPlayerChannelTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="Star Sports 1 HD" />
+
+        <!-- Aspect Ratio Button -->
+        <ImageButton
+            android:id="@+id/btnAspectRatio"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Aspect Ratio"
+            android:padding="8dp"
+            android:src="@drawable/ic_aspect_ratio"
+            app:tint="@color/white" />
+
+        <!-- Stream Info / Extracted URL button -->
+        <ImageButton
+            android:id="@+id/btnStreamInfo"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Stream Info"
+            android:padding="8dp"
+            android:src="@drawable/ic_code"
+            app:tint="@color/white" />
+    </LinearLayout>
+
+    <!-- Center Play/Pause button -->
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center">
+
+        <ImageButton
+            android:id="@+id/btnPlayPause"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_pill_status"
+            android:contentDescription="Play/Pause"
+            android:padding="14dp"
+            android:src="@drawable/ic_play"
+            app:tint="@color/white" />
+
+        <ProgressBar
+            android:id="@+id/playerLoadingProgress"
+            android:layout_width="54dp"
+            android:layout_height="54dp"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/primary"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Bottom Controls Bar -->
+    <LinearLayout
+        android:id="@+id/playerBottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
+
+        <!-- Extractor Status Text -->
+        <TextView
+            android:id="@+id/tvExtractorStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            tools:text="🟢 Stream Active • HLS .m3u8" />
+
+        <!-- Refresh / Re-extract Button -->
+        <ImageButton
+            android:id="@+id/btnReloadStream"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Reload Stream"
+            android:padding="8dp"
+            android:src="@drawable/ic_refresh"
+            app:tint="@color/white" />
+
+        <!-- Fullscreen Toggle Button -->
+        <ImageButton
+            android:id="@+id/btnFullscreenToggle"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Fullscreen"
+            android:padding="8dp"
+            android:src="@drawable/ic_fullscreen"
+            app:tint="@color/white" />
+    </LinearLayout>
+
+</FrameLayout>

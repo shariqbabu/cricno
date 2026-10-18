@@ -1,0 +1,71 @@
+name: Build LiveStreamApp APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant Execute Permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug & Release APK
+        env:
+          CHANNEL_1_NAME: ${{ secrets.CHANNEL_1_NAME }}
+          CHANNEL_1_URL: ${{ secrets.CHANNEL_1_URL }}
+          CHANNEL_2_NAME: ${{ secrets.CHANNEL_2_NAME }}
+          CHANNEL_2_URL: ${{ secrets.CHANNEL_2_URL }}
+          CHANNEL_3_NAME: ${{ secrets.CHANNEL_3_NAME }}
+          CHANNEL_3_URL: ${{ secrets.CHANNEL_3_URL }}
+          CHANNEL_4_NAME: ${{ secrets.CHANNEL_4_NAME }}
+          CHANNEL_4_URL: ${{ secrets.CHANNEL_4_URL }}
+          CHANNEL_5_NAME: ${{ secrets.CHANNEL_5_NAME }}
+          CHANNEL_5_URL: ${{ secrets.CHANNEL_5_URL }}
+          CHANNEL_6_NAME: ${{ secrets.CHANNEL_6_NAME }}
+          CHANNEL_6_URL: ${{ secrets.CHANNEL_6_URL }}
+          CHANNELS_JSON: ${{ secrets.CHANNELS_JSON }}
+        run: |
+          ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: livestream-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: livestream-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          files: app/build/outputs/apk/release/*.apk

@@ -1,0 +1,120 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Secrets & local.properties reader for Channels Configuration
+// ---------------------------------------------------------------------------
+def secretProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { secretProps.load(it) }
+}
+
+def getSecret = { String name, String fallback ->
+    def envVal = System.getenv(name)
+    if (envVal != null && envVal.trim() != '') return envVal
+    secretProps.getProperty(name, fallback)
+}
+
+def escapeForBuildConfig = { String val ->
+    if (val == null) return ""
+    return val.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+}
+
+android {
+    namespace 'com.livestream.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.livestream.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+
+        // Target Channel 1 (User target)
+        buildConfigField("String", "CHANNEL_1_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_1_NAME', 'Star Sports 1 HD'))}\"")
+        buildConfigField("String", "CHANNEL_1_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_1_URL', 'http://playsza.zu/uembed.php?id=star4b'))}\"")
+
+        // Channel 2
+        buildConfigField("String", "CHANNEL_2_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_2_NAME', 'Star Sports 1 Hindi HD'))}\"")
+        buildConfigField("String", "CHANNEL_2_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_2_URL', 'http://playsza.zu/uembed.php?id=starhindi'))}\"")
+
+        // Channel 3
+        buildConfigField("String", "CHANNEL_3_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_3_NAME', 'Star Sports 2 HD'))}\"")
+        buildConfigField("String", "CHANNEL_3_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_3_URL', 'http://playsza.zu/uembed.php?id=star2'))}\"")
+
+        // Channel 4
+        buildConfigField("String", "CHANNEL_4_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_4_NAME', 'Sony Sports Ten 1 HD'))}\"")
+        buildConfigField("String", "CHANNEL_4_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_4_URL', 'http://playsza.zu/uembed.php?id=sony1'))}\"")
+
+        // Channel 5
+        buildConfigField("String", "CHANNEL_5_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_5_NAME', 'Willow Cricket HD'))}\"")
+        buildConfigField("String", "CHANNEL_5_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_5_URL', 'http://playsza.zu/uembed.php?id=willow'))}\"")
+
+        // Channel 6
+        buildConfigField("String", "CHANNEL_6_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_6_NAME', 'DD Sports 1.0 HD'))}\"")
+        buildConfigField("String", "CHANNEL_6_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_6_URL', 'http://playsza.zu/uembed.php?id=ddsports'))}\"")
+
+        // Optional full JSON string secret containing custom channels list
+        buildConfigField("String", "CHANNELS_JSON", "\"${escapeForBuildConfig(getSecret('CHANNELS_JSON', ''))}\"")
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+    // AndroidX & UI
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity-ktx:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'com.google.android.material:material:1.12.0'
+
+    // Lifecycle & Coroutines
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+
+    // Networking & JSON
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // WebView for Background Stream Extraction
+    implementation 'androidx.webkit:webkit:1.11.0'
+
+    // AndroidX Media3 ExoPlayer for Native HLS Streaming
+    implementation 'androidx.media3:media3-exoplayer:1.3.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.3.1'
+    implementation 'androidx.media3:media3-datasource-okhttp:1.3.1'
+    implementation 'androidx.media3:media3-ui:1.3.1'
+    implementation 'androidx.media3:media3-common:1.3.1'
+}
