@@ -3,6 +3,7 @@ package com.livestream.app.extractor
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
@@ -31,7 +32,14 @@ class BackgroundStreamExtractor(private val context: Context) {
     private var webView: WebView? = null
     private val streamCache = ConcurrentHashMap<String, ExtractedStream>()
 
-    // Current in-flight extraction request
+    // Thread-safe state for background threads (shouldInterceptRequest & JavaBridge)
+    @Volatile
+    private var currentLoadedPageUrl: String = ""
+
+    @Volatile
+    private var activeExtractionToken: Long = 0L
+
+    // Current in-flight extraction request (modified on main thread)
     private var activeChannelId: String? = null
     private var activeCallback: ((ExtractedStream) -> Unit)? = null
     private var activeErrorCallback: ((String) -> Unit)? = null
@@ -75,35 +83,44 @@ class BackgroundStreamExtractor(private val context: Context) {
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                        // Allow internal navigation to follow player embeds/redirects
+                        val nextUrl = request?.url?.toString()
+                        if (nextUrl != null) {
+                            currentLoadedPageUrl = nextUrl
+                        }
                         return false
                     }
 
+                    // Called on Chromium background IO thread - DO NOT call view or webView methods here
                     override fun shouldInterceptRequest(
                         view: WebView?,
                         request: WebResourceRequest?
                     ): WebResourceResponse? {
                         val reqUrl = request?.url?.toString()
                         if (reqUrl != null && isMediaStreamUrl(reqUrl)) {
-                            val referer = request.requestHeaders?.get("Referer") ?: view?.url.orEmpty()
+                            val referer = request.requestHeaders?.get("Referer") ?: currentLoadedPageUrl
                             val ua = request.requestHeaders?.get("User-Agent") ?: DEFAULT_USER_AGENT
-                            handleDetectedStream(reqUrl, "NETWORK_INTERCEPT", referer, ua)
+                            handleDetectedStream(reqUrl, "NETWORK_INTERCEPT", referer, ua, activeExtractionToken)
                         }
                         return super.shouldInterceptRequest(view, request)
                     }
 
                     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                        // Proceed through CDN streaming cert differences
                         handler?.proceed()
                     }
 
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
+                        if (url != null) {
+                            currentLoadedPageUrl = url
+                        }
                         injectSnifferScript(view)
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
+                        if (url != null) {
+                            currentLoadedPageUrl = url
+                        }
                         injectSnifferScript(view)
                     }
                 }
@@ -157,6 +174,7 @@ class BackgroundStreamExtractor(private val context: Context) {
         mainHandler.post {
             cancelActiveTimeout()
 
+            val token = ++activeExtractionToken
             activeChannelId = channel.id
             activeCallback = onSuccess
             activeErrorCallback = onError
@@ -167,13 +185,14 @@ class BackgroundStreamExtractor(private val context: Context) {
                 return@post
             }
 
-            Log.d(TAG, "Starting background extraction for '${channel.name}' -> $targetUrl")
+            currentLoadedPageUrl = targetUrl
+            Log.d(TAG, "Starting background extraction [$token] for '${channel.name}' -> $targetUrl")
             webView?.stopLoading()
             webView?.loadUrl(targetUrl)
 
             // Setup a 20 second timeout fallback
             val runnable = Runnable {
-                if (activeChannelId == channel.id && activeErrorCallback != null) {
+                if (token == activeExtractionToken && activeChannelId == channel.id && activeErrorCallback != null) {
                     val cb = activeErrorCallback
                     activeCallback = null
                     activeErrorCallback = null
@@ -214,11 +233,35 @@ class BackgroundStreamExtractor(private val context: Context) {
         return streamCache[channelId]
     }
 
-    private fun handleDetectedStream(url: String, source: String, referer: String, userAgent: String) {
-        val cleanUrl = url.trim()
+    private fun handleDetectedStream(
+        url: String,
+        source: String,
+        referer: String,
+        userAgent: String,
+        token: Long
+    ) {
+        // Discard stale in-flight requests from a previously abandoned channel
+        if (token != activeExtractionToken) {
+            Log.d(TAG, "Discarded out-of-order stream token $token (active is $activeExtractionToken)")
+            return
+        }
+
+        var cleanUrl = url.trim()
         if (!isMediaStreamUrl(cleanUrl)) return
 
-        val effectiveReferer = if (referer.isNotBlank()) referer else webView?.url.orEmpty()
+        // Resolve relative URLs against current loaded page if needed
+        if (!cleanUrl.startsWith("http://", ignoreCase = true) && !cleanUrl.startsWith("https://", ignoreCase = true)) {
+            val base = currentLoadedPageUrl
+            cleanUrl = try {
+                val baseUri = Uri.parse(base)
+                val resolved = Uri.withAppendedPath(baseUri, cleanUrl)
+                resolved.toString()
+            } catch (_: Exception) {
+                return
+            }
+        }
+
+        val effectiveReferer = if (referer.isNotBlank()) referer else currentLoadedPageUrl
         val effectiveUa = if (userAgent.isNotBlank()) userAgent else DEFAULT_USER_AGENT
 
         val extracted = ExtractedStream(
@@ -229,12 +272,14 @@ class BackgroundStreamExtractor(private val context: Context) {
             timestamp = System.currentTimeMillis()
         )
 
-        val chId = activeChannelId
-        if (chId != null) {
-            streamCache[chId] = extracted
-        }
-
         mainHandler.post {
+            if (token != activeExtractionToken) return@post
+
+            val chId = activeChannelId
+            if (chId != null) {
+                streamCache[chId] = extracted
+            }
+
             cancelActiveTimeout()
             val cb = activeCallback
             activeCallback = null
@@ -252,15 +297,21 @@ class BackgroundStreamExtractor(private val context: Context) {
         if (url.isNullOrBlank()) return false
         val lower = url.lowercase()
 
-        // Exclude common static non-stream assets
-        if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
-            lower.endsWith(".gif") || lower.endsWith(".css") || lower.endsWith(".svg") ||
-            lower.endsWith(".woff") || lower.endsWith(".woff2") || lower.endsWith(".ttf") ||
-            lower.endsWith(".js")
+        // Strip query params and fragments to inspect actual file extension
+        val path = lower.substringBefore('?').substringBefore('#')
+
+        // Exclude static assets, stylesheets, fonts, and scripts
+        if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
+            path.endsWith(".gif") || path.endsWith(".css") || path.endsWith(".svg") ||
+            path.endsWith(".woff") || path.endsWith(".woff2") || path.endsWith(".ttf") ||
+            path.endsWith(".js") || path.endsWith(".html") || path.endsWith(".htm") ||
+            path.endsWith(".php") || path.endsWith(".ico") || path.endsWith(".json") ||
+            path.endsWith(".map")
         ) {
             return false
         }
 
+        // Must match an actual media manifest/stream indicator
         return lower.contains(".m3u8") ||
                 lower.contains(".mpd") ||
                 lower.contains("/hls/") ||
@@ -268,18 +319,22 @@ class BackgroundStreamExtractor(private val context: Context) {
                 lower.contains("master.m3u8") ||
                 lower.contains("chunklist") ||
                 lower.contains("/manifest") ||
-                (lower.contains("stream") && (lower.contains("token") || lower.contains("expires=")))
+                path.endsWith(".mp4") ||
+                path.endsWith(".m4s") ||
+                path.endsWith(".ts")
     }
 
     inner class ExtractorBridge {
+        // Runs on JavaBridge background thread - do NOT touch WebView directly
         @JavascriptInterface
         fun onStreamDetected(url: String?, source: String?, referer: String?) {
             if (url.isNullOrBlank()) return
             handleDetectedStream(
                 url = url,
                 source = source ?: "JS_INTERFACE",
-                referer = referer ?: webView?.url.orEmpty(),
-                userAgent = DEFAULT_USER_AGENT
+                referer = referer ?: currentLoadedPageUrl,
+                userAgent = DEFAULT_USER_AGENT,
+                token = activeExtractionToken
             )
         }
     }

@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPlayingChannel: ChannelItem? = null
     private var currentExtractedStream: ExtractedStream? = null
+    private var playerRetryCount = 0
 
     private var isFullscreen = false
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -78,9 +79,9 @@ class MainActivity : AppCompatActivity() {
     private fun initExtractor() {
         extractor = BackgroundStreamExtractor(this)
 
-        // Pre-warm the cache for the first channel in background
-        if (channelsList.isNotEmpty()) {
-            extractor.preExtract(channelsList[0])
+        // Pre-warm the cache for the second channel in background while first channel is played
+        if (channelsList.size > 1) {
+            extractor.preExtract(channelsList[1])
         }
     }
 
@@ -100,8 +101,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupListeners() {
         val controls = binding.playerControlsOverlay
 
-        // Toggle controls overlay visibility on tapping player
+        // Toggle controls overlay visibility on tapping player view or overlay background
         binding.playerView.setOnClickListener {
+            togglePlayerControls()
+        }
+        controls.root.setOnClickListener {
             togglePlayerControls()
         }
 
@@ -209,10 +213,20 @@ class MainActivity : AppCompatActivity() {
         val channel = currentPlayingChannel ?: return
         Log.e("MainActivity", "Playback error for channel ${channel.name}: ${error.message}")
 
-        // Invalidate cache and auto-retry fresh extraction
-        extractor.invalidateCache(channel.id)
-        binding.playerControlsOverlay.tvExtractorStatus.text = "⚠️ Stream dropped. Re-extracting…"
-        playChannel(channel, forceRefresh = true)
+        if (playerRetryCount < 3) {
+            playerRetryCount++
+            extractor.invalidateCache(channel.id)
+            binding.playerControlsOverlay.tvExtractorStatus.text = "⚠️ Stream dropped. Re-extracting ($playerRetryCount/3)…"
+            mainHandler.postDelayed({
+                if (currentPlayingChannel?.id == channel.id) {
+                    playChannel(channel, forceRefresh = true)
+                }
+            }, 1500)
+        } else {
+            channelsAdapter.updateChannelStatus(channel.id, ChannelStatus.ERROR)
+            binding.playerControlsOverlay.tvExtractorStatus.text = "❌ Playback failed. Tap Reload to retry."
+            Toast.makeText(this, "Playback error on ${channel.name}. Tap Reload to try again.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun updatePlaybackUi(playbackState: Int, isPlaying: Boolean) {
@@ -230,6 +244,7 @@ class MainActivity : AppCompatActivity() {
                 controls.btnPlayPause.visibility = View.GONE
             }
             Player.STATE_READY -> {
+                playerRetryCount = 0
                 controls.playerLoadingProgress.visibility = View.GONE
                 controls.btnPlayPause.visibility = View.VISIBLE
                 binding.loadingStatusBox.visibility = View.GONE
@@ -271,6 +286,9 @@ class MainActivity : AppCompatActivity() {
     private fun toggleFullscreen() {
         if (isFullscreen) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            mainHandler.postDelayed({
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }, 1000)
         } else {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }
@@ -292,8 +310,12 @@ class MainActivity : AppCompatActivity() {
 
             val params = binding.videoContainer.layoutParams as ConstraintLayout.LayoutParams
             params.dimensionRatio = null
-            params.height = ViewGroup.LayoutParams.MATCH_PARENT
-            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            params.height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+            params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
             binding.videoContainer.layoutParams = params
 
             controls.btnFullscreenToggle.setImageResource(R.drawable.ic_fullscreen_exit)
@@ -304,8 +326,12 @@ class MainActivity : AppCompatActivity() {
 
             val params = binding.videoContainer.layoutParams as ConstraintLayout.LayoutParams
             params.dimensionRatio = "16:9"
-            params.height = 0
             params.width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+            params.height = 0
+            params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            params.bottomToBottom = ConstraintLayout.LayoutParams.UNSET
+            params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
             binding.videoContainer.layoutParams = params
 
             controls.btnFullscreenToggle.setImageResource(R.drawable.ic_fullscreen)

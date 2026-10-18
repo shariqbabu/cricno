@@ -105,7 +105,15 @@ object ChannelRepository {
     }
 
     fun saveChannels(context: Context, channels: List<ChannelItem>) {
-        val json = gson.toJson(channels)
+        val sanitized = channels.map {
+            it.copy(
+                extractedStreamUrl = null,
+                referer = null,
+                status = com.livestream.app.data.model.ChannelStatus.IDLE,
+                lastExtractedTime = 0L
+            )
+        }
+        val json = gson.toJson(sanitized)
         getPrefs(context).edit().putString(KEY_CUSTOM_CHANNELS, json).apply()
     }
 

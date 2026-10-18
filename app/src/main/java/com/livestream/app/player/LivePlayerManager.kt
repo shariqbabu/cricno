@@ -47,8 +47,14 @@ class LivePlayerManager(
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
+        val audioAttributes = androidx.media3.common.AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build()
+
         exoPlayer = ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
+            .setAudioAttributes(audioAttributes, true)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
@@ -89,8 +95,10 @@ class LivePlayerManager(
                 headers["Referer"] = referer
                 try {
                     val uri = Uri.parse(referer)
-                    val origin = "${uri.scheme}://${uri.host}"
-                    headers["Origin"] = origin
+                    if (uri.scheme != null && uri.host != null) {
+                        val portSuffix = if (uri.port != -1 && uri.port != 80 && uri.port != 443) ":${uri.port}" else ""
+                        headers["Origin"] = "${uri.scheme}://${uri.host}$portSuffix"
+                    }
                 } catch (_: Exception) {}
             }
 
