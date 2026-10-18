@@ -4,7 +4,8 @@ object StreamExtractorSniffer {
 
     /**
      * JavaScript injection sniffer that hooks XHR, Fetch, Hls.js, Clappr,
-     * HTMLMediaElement, scans DOM & inline script tags, and auto-clicks Cloudflare Turnstile & play buttons.
+     * HTMLMediaElement, scans DOM, unrolls Dean Edwards p.a.c.k.e.r, decodes Base64,
+     * and auto-clicks Cloudflare Turnstile & play buttons.
      */
     fun getSnifferJavaScript(): String {
         return """
@@ -20,9 +21,10 @@ object StreamExtractorSniffer {
                     if (!lower.includes('.m3u8') &&
                         !lower.includes('.mpd') &&
                         !lower.includes('/hls/') &&
-                        !lower.includes('playlist.m3u8') &&
+                        !lower.includes('playlist') &&
                         !lower.includes('master.m3u8') &&
                         !lower.includes('chunklist') &&
+                        !lower.includes('/manifest') &&
                         !(lower.includes('stream') && (lower.includes('token') || lower.includes('expires=')))) {
                         return;
                     }
@@ -32,6 +34,38 @@ object StreamExtractorSniffer {
                             window.MediaUrlBridge.onStreamDetected(url, source || 'JS_SNIFFER', window.location.href);
                         }
                     } catch(e) {}
+                }
+
+                function reportIframe(url) {
+                    if (!url || typeof url !== 'string') return;
+                    try {
+                        if (window.MediaUrlBridge && window.MediaUrlBridge.onIframeDetected) {
+                            window.MediaUrlBridge.onIframeDetected(url);
+                        }
+                    } catch(e) {}
+                }
+
+                // Dean Edwards P.A.C.K.E.R unpacker
+                function unpackPacker(scriptText) {
+                    try {
+                        const match = scriptText.match(/}\s*\('(.*)',\s*(\d+),\s*(\d+),\s*'(.*)'\.split\('\|'\)/);
+                        if (!match) return scriptText;
+                        let [, p, a, c, k] = match;
+                        a = parseInt(a, 10);
+                        c = parseInt(c, 10);
+                        const dict = k.split('|');
+                        const e = function(c) {
+                            return (c < a ? '' : e(Math.floor(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36));
+                        };
+                        while (c--) {
+                            if (dict[c]) {
+                                p = p.replace(new RegExp('\\b' + e(c) + '\\b', 'g'), dict[c]);
+                            }
+                        }
+                        return p;
+                    } catch(err) {
+                        return scriptText;
+                    }
                 }
 
                 // 1. Hook XMLHttpRequest
@@ -94,17 +128,31 @@ object StreamExtractorSniffer {
 
                 // 5. Scan DOM for <video>, <source>, <audio>, <iframe> elements & inline script tags
                 function scanMediaElements() {
-                    document.querySelectorAll('video, audio, source, iframe').forEach(el => {
+                    document.querySelectorAll('video, audio, source').forEach(el => {
                         const src = el.src || el.getAttribute('src');
                         if (src) reportStream(src, 'TAG_' + el.tagName);
                     });
 
-                    // Scan inline script tags for .m3u8 regex matches & obfuscated array joins
+                    // Report iframes so background extractor can inspect embedded player frames
+                    document.querySelectorAll('iframe').forEach(el => {
+                        const src = el.src || el.getAttribute('src');
+                        if (src && !src.startsWith('about:') && !src.startsWith('chrome:')) {
+                            reportIframe(src);
+                        }
+                    });
+
                     const m3u8Regex = /https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/gi;
                     const arrayJoinRegex = /\[\s*(?:["'][a-zA-Z0-9_\-\.\:\/\?=&%]+["']\s*,\s*)+["'][a-zA-Z0-9_\-\.\:\/\?=&%]+["']\s*\]\.join\(\s*["']{2}\s*\)/g;
+                    const b64Regex = /(?:atob\(['"]|['"])(aHR0c[A-Za-z0-9+/=]+)['"]/g;
 
                     document.querySelectorAll('script').forEach(s => {
-                        const code = s.textContent || s.innerText || '';
+                        let code = s.textContent || s.innerText || '';
+                        if (!code) return;
+
+                        // Check if script is packed with Dean Edwards
+                        if (code.includes('eval(function(p,a,c,k,e,d)')) {
+                            code = unpackPacker(code);
+                        }
 
                         // Direct matches
                         const matches = code.match(m3u8Regex);
@@ -120,6 +168,20 @@ object StreamExtractorSniffer {
                                     const evaluated = (new Function('return ' + arrStr))();
                                     if (evaluated && typeof evaluated === 'string') {
                                         reportStream(evaluated, 'DEOBFUSCATED_ARRAY');
+                                    }
+                                } catch(e) {}
+                            });
+                        }
+
+                        // Base64 encoded stream matches
+                        const b64Matches = code.match(b64Regex);
+                        if (b64Matches) {
+                            b64Matches.forEach(b => {
+                                try {
+                                    const cleanB64 = b.replace(/^(atob\(['"]|['"])|['"]$/g, '');
+                                    const decoded = atob(cleanB64);
+                                    if (decoded && (decoded.includes('.m3u8') || decoded.includes('/hls/'))) {
+                                        reportStream(decoded, 'BASE64_DECODED');
                                     }
                                 } catch(e) {}
                             });
@@ -144,7 +206,7 @@ object StreamExtractorSniffer {
                     }
                 }
                 scanMediaElements();
-                setInterval(scanMediaElements, 1200);
+                setInterval(scanMediaElements, 1000);
 
                 // 6. Auto-kickstart video players & Auto-click Cloudflare Turnstile
                 function autoKickstart() {
@@ -172,9 +234,9 @@ object StreamExtractorSniffer {
                         try { b.click(); } catch(e) {}
                     });
                 }
-                setTimeout(autoKickstart, 800);
-                setTimeout(autoKickstart, 2000);
-                setInterval(autoKickstart, 3000);
+                setTimeout(autoKickstart, 600);
+                setTimeout(autoKickstart, 1500);
+                setInterval(autoKickstart, 2500);
 
                 // 7. Observe Dynamic DOM Additions
                 try {
@@ -182,11 +244,17 @@ object StreamExtractorSniffer {
                         mutations.forEach(function(m) {
                             m.addedNodes.forEach(function(node) {
                                 if (node.nodeType === 1) {
-                                    if (node.tagName === 'VIDEO' || node.tagName === 'SOURCE' || node.tagName === 'IFRAME') {
+                                    if (node.tagName === 'VIDEO' || node.tagName === 'SOURCE') {
                                         reportStream(node.src || node.getAttribute('src'), 'MUTATION');
                                     }
-                                    node.querySelectorAll?.('video, source, iframe').forEach(el => {
+                                    if (node.tagName === 'IFRAME') {
+                                        reportIframe(node.src || node.getAttribute('src'));
+                                    }
+                                    node.querySelectorAll?.('video, source').forEach(el => {
                                         reportStream(el.src || el.getAttribute('src'), 'MUTATION');
+                                    });
+                                    node.querySelectorAll?.('iframe').forEach(el => {
+                                        reportIframe(el.src || el.getAttribute('src'));
                                     });
                                 }
                             });

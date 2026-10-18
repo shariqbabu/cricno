@@ -36,27 +36,27 @@ android {
 
         // Target Channel 1 (User target)
         buildConfigField("String", "CHANNEL_1_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_1_NAME', 'Star Sports 1 HD'))}\"")
-        buildConfigField("String", "CHANNEL_1_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_1_URL', 'http://playsza.zu/uembed.php?id=star3in'))}\"")
+        buildConfigField("String", "CHANNEL_1_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_1_URL', 'https://playsza.ru/uembed.php?id=star4b'))}\"")
 
         // Channel 2
         buildConfigField("String", "CHANNEL_2_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_2_NAME', 'Star Sports 1 Hindi HD'))}\"")
-        buildConfigField("String", "CHANNEL_2_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_2_URL', 'http://playsza.zu/uembed.php?id=star4b'))}\"")
+        buildConfigField("String", "CHANNEL_2_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_2_URL', 'https://playsza.ru/uembed.php?id=starhindi'))}\"")
 
         // Channel 3
         buildConfigField("String", "CHANNEL_3_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_3_NAME', 'Star Sports 2 HD'))}\"")
-        buildConfigField("String", "CHANNEL_3_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_3_URL', 'http://playsza.zu/uembed.php?id=starsp'))}\"")
+        buildConfigField("String", "CHANNEL_3_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_3_URL', 'https://playsza.ru/uembed.php?id=starsp'))}\"")
 
         // Channel 4
         buildConfigField("String", "CHANNEL_4_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_4_NAME', 'Sony Sports Ten 1 HD'))}\"")
-        buildConfigField("String", "CHANNEL_4_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_4_URL', 'http://playsza.zu/uembed.php?id=sony1c'))}\"")
+        buildConfigField("String", "CHANNEL_4_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_4_URL', 'https://playsza.ru/uembed.php?id=sony1c'))}\"")
 
         // Channel 5
         buildConfigField("String", "CHANNEL_5_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_5_NAME', 'Willow Cricket HD'))}\"")
-        buildConfigField("String", "CHANNEL_5_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_5_URL', 'http://playsza.zu/uembed.php?id=willow2c'))}\"")
+        buildConfigField("String", "CHANNEL_5_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_5_URL', 'https://amg01269-amg01269c1-sportstribal-emea-5204.playouts.now.amagi.tv/ts-eu-w1-n2/playlist/amg01269-willowtvfast-willowplus-sportstribalemea/playlist.m3u8'))}\"")
 
          // Channel 6
         buildConfigField("String", "CHANNEL_6_NAME", "\"${escapeForBuildConfig(getSecret('CHANNEL_6_NAME', 'PTV Live HD'))}\"")
-        buildConfigField("String", "CHANNEL_6_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_6_URL', 'http://playsza.zu/uembed.php?id=ptvskpr'))}\"")
+        buildConfigField("String", "CHANNEL_6_URL", "\"${escapeForBuildConfig(getSecret('CHANNEL_6_URL', 'https://playsza.ru/uembed.php?id=ptvskpr'))}\"")
 
 
         // Optional full JSON string secret containing custom channels list

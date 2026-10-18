@@ -1,24 +1,24 @@
 # Local configuration for LiveStream Pro
-# When testing locally, you can specify your channel embed URLs here.
+# When testing locally, you can specify your channel embed URLs or direct .m3u8 URLs here.
 # In GitHub Actions, configure these in repository Settings -> Secrets and variables -> Actions.
 
 CHANNEL_1_NAME=Star Sports 1 HD
-CHANNEL_1_URL=http://playsza.zu/uembed.php?id=star4b
+CHANNEL_1_URL=https://mz01.bhalocast.com:7060/hls/star4b.m3u8?md5=MQPXDhQjPznPoq3uLOSTdw&expires=1792337959&ch=star4b&s=ae363db1ddcf30e00aee48e1c27c3436
 
-CHANNEL_2_NAME=Star Sports 1 Hindi HD
-CHANNEL_2_URL=http://playsza.zu/uembed.php?id=starhindi
+CHANNEL_2_NAME=PTV Sports Live
+CHANNEL_2_URL=https://mz02.bhalocast.com:7060/hls/ptvskpr.m3u8?md5=tvgRdl_p4oE5DldXI33j4Q&expires=1792337971&ch=ptvskpr&s=c79ff00def31cc4721e825c0fce0050e
 
-CHANNEL_3_NAME=Star Sports 2 HD
-CHANNEL_3_URL=http://playsza.zu/uembed.php?id=star2
+CHANNEL_3_NAME=Willow Cricket HD
+CHANNEL_3_URL=https://amg01269-amg01269c1-sportstribal-emea-5204.playouts.now.amagi.tv/ts-eu-w1-n2/playlist/amg01269-willowtvfast-willowplus-sportstribalemea/playlist.m3u8
 
-CHANNEL_4_NAME=Sony Sports Ten 1 HD
-CHANNEL_4_URL=http://playsza.zu/uembed.php?id=sony1
+CHANNEL_4_NAME=CricBuzz 1 HD
+CHANNEL_4_URL=https://shariqbabu-cineflix-ott.hf.space/hls/webcricn02/playlist.m3u8
 
-CHANNEL_5_NAME=Willow Cricket HD
-CHANNEL_5_URL=http://playsza.zu/uembed.php?id=willow
+CHANNEL_5_NAME=Sky Cricket HD
+CHANNEL_5_URL=https://shariqbabu-cineflix-ott.hf.space/hls/webcricp01/playlist.m3u8
 
-CHANNEL_6_NAME=DD Sports 1.0 HD
-CHANNEL_6_URL=http://playsza.zu/uembed.php?id=ddsports
+CHANNEL_6_NAME=CricBuzz Live
+CHANNEL_6_URL=https://mz02.bhalocast.com:7060/hls/astro2v.m3u8?md5=YWrKIYNJVlhOtX42RHmQUA&expires=1792334779&ch=astro2v&s=625c7347d819f0e38e0076577085da4f
 
 # Optional: You can also pass a full JSON array of custom channels via CHANNELS_JSON:
-# CHANNELS_JSON=[{"id":"ch1","name":"Star Sports 1 HD","embedUrl":"http://playsza.zu/uembed.php?id=star4b","category":"Sports","quality":"1080p HD"}]
+# CHANNELS_JSON=[{"id":"ch1","name":"Star Sports 1 HD","embedUrl":"https://playsza.ru/uembed.php?id=star4b","category":"Sports","quality":"1080p HD"}]

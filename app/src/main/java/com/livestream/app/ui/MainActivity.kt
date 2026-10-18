@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initExtractor() {
-        extractor = BackgroundStreamExtractor(this)
+        extractor = BackgroundStreamExtractor(this, binding.extractorWebView)
 
         // Pre-warm the cache for the second channel in background while first channel is played
         if (channelsList.size > 1) {

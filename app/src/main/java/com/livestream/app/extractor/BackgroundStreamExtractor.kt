@@ -14,6 +14,7 @@ import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -24,7 +25,10 @@ import com.livestream.app.data.model.ExtractedStream
 import java.util.concurrent.ConcurrentHashMap
 
 @SuppressLint("SetJavaScriptEnabled")
-class BackgroundStreamExtractor(private val context: Context) {
+class BackgroundStreamExtractor(
+    private val context: Context,
+    private val hostWebView: WebView? = null
+) {
 
     private val TAG = "StreamExtractor"
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -45,6 +49,11 @@ class BackgroundStreamExtractor(private val context: Context) {
     private var activeErrorCallback: ((String) -> Unit)? = null
     private var timeoutRunnable: Runnable? = null
 
+    // Track detected iframes for fallback drill-down
+    @Volatile
+    private var detectedIframeUrl: String? = null
+    private var iframeFallbackAttempted: Boolean = false
+
     private val DEFAULT_USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
@@ -56,7 +65,8 @@ class BackgroundStreamExtractor(private val context: Context) {
 
     private fun initWebView() {
         try {
-            webView = WebView(context.applicationContext).apply {
+            val targetView = hostWebView ?: WebView(context)
+            webView = targetView.apply {
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
@@ -104,6 +114,36 @@ class BackgroundStreamExtractor(private val context: Context) {
                         return super.shouldInterceptRequest(view, request)
                     }
 
+                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                        super.onReceivedError(view, request, error)
+                        if (request?.isForMainFrame == true) {
+                            val desc = error?.description?.toString() ?: "Network error"
+                            val code = error?.errorCode ?: 0
+                            Log.e(TAG, "MainFrame load error [$code]: $desc for URL: ${request.url}")
+
+                            // Fast-fail if host lookup or connection fails completely
+                            if (code == ERROR_HOST_LOOKUP || code == ERROR_CONNECT) {
+                                mainHandler.post {
+                                    if (activeCallback != null) {
+                                        val cb = activeErrorCallback
+                                        activeCallback = null
+                                        activeErrorCallback = null
+                                        cancelActiveTimeout()
+                                        cb?.invoke("Page load failed ($desc). Check stream URL/domain.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
+                        super.onReceivedHttpError(view, request, errorResponse)
+                        if (request?.isForMainFrame == true) {
+                            val code = errorResponse?.statusCode ?: 0
+                            Log.w(TAG, "MainFrame HTTP error $code for URL: ${request.url}")
+                        }
+                    }
+
                     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
                         handler?.proceed()
                     }
@@ -140,7 +180,7 @@ class BackgroundStreamExtractor(private val context: Context) {
                     }
                 }
             }
-            Log.d(TAG, "Headless background WebView initialized successfully")
+            Log.d(TAG, "Background WebView initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing background WebView: ${e.message}")
         }
@@ -171,6 +211,27 @@ class BackgroundStreamExtractor(private val context: Context) {
             return
         }
 
+        val targetUrl = channel.embedUrl.trim()
+        if (targetUrl.isBlank()) {
+            onError("Embed URL is empty for channel ${channel.name}")
+            return
+        }
+
+        // FAST PATH: If the input URL is ALREADY a direct .m3u8 or media stream, bypass WebView entirely!
+        if (isDirectStreamUrl(targetUrl)) {
+            Log.d(TAG, "Channel '${channel.name}' has direct media URL. Bypassing WebView extraction.")
+            val directStream = ExtractedStream(
+                url = targetUrl,
+                referer = channel.referer ?: targetUrl,
+                userAgent = DEFAULT_USER_AGENT,
+                source = "DIRECT_URL",
+                timestamp = System.currentTimeMillis()
+            )
+            streamCache[channel.id] = directStream
+            onSuccess(directStream)
+            return
+        }
+
         mainHandler.post {
             cancelActiveTimeout()
 
@@ -178,17 +239,33 @@ class BackgroundStreamExtractor(private val context: Context) {
             activeChannelId = channel.id
             activeCallback = onSuccess
             activeErrorCallback = onError
-
-            val targetUrl = channel.embedUrl.trim()
-            if (targetUrl.isBlank()) {
-                onError("Embed URL is empty for channel ${channel.name}")
-                return@post
-            }
+            detectedIframeUrl = null
+            iframeFallbackAttempted = false
 
             currentLoadedPageUrl = targetUrl
             Log.d(TAG, "Starting background extraction [$token] for '${channel.name}' -> $targetUrl")
-            webView?.stopLoading()
-            webView?.loadUrl(targetUrl)
+
+            try {
+                webView?.resumeTimers()
+                webView?.stopLoading()
+                webView?.loadUrl(targetUrl)
+            } catch (e: Exception) {
+                onError("Failed to start WebView: ${e.message}")
+                return@post
+            }
+
+            // Fallback iframe drill-down after 6 seconds if main page hasn't yielded a stream yet
+            mainHandler.postDelayed({
+                if (token == activeExtractionToken && activeCallback != null && !iframeFallbackAttempted) {
+                    val iframeUrl = detectedIframeUrl
+                    if (!iframeUrl.isNullOrBlank()) {
+                        iframeFallbackAttempted = true
+                        Log.d(TAG, "Main page stream pending. Attempting iframe drill-down -> $iframeUrl")
+                        currentLoadedPageUrl = iframeUrl
+                        webView?.loadUrl(iframeUrl)
+                    }
+                }
+            }, 6_000L)
 
             // Setup a 20 second timeout fallback
             val runnable = Runnable {
@@ -196,7 +273,7 @@ class BackgroundStreamExtractor(private val context: Context) {
                     val cb = activeErrorCallback
                     activeCallback = null
                     activeErrorCallback = null
-                    cb?.invoke("Extraction timeout. Stream could not be detected automatically.")
+                    cb?.invoke("Extraction timeout. Could not detect live stream from $targetUrl")
                 }
             }
             timeoutRunnable = runnable
@@ -261,6 +338,17 @@ class BackgroundStreamExtractor(private val context: Context) {
             }
         }
 
+        // If intercepted URL is an HLS chunk TS segment (e.g. /hls/star4b-1791836181366.ts?md5=...),
+        // rewrite it to the parent .m3u8 playlist so ExoPlayer can properly parse it as HLS!
+        if (cleanUrl.contains("/hls/") && (cleanUrl.contains(".ts?") || cleanUrl.endsWith(".ts"))) {
+            val converted = cleanUrl.replace(Regex("-[0-9]+\\.ts"), ".m3u8")
+                .replace(Regex("_[0-9]+\\.ts"), ".m3u8")
+            if (converted.contains(".m3u8")) {
+                Log.d(TAG, "Converted TS segment chunk into HLS playlist: $converted")
+                cleanUrl = converted
+            }
+        }
+
         val effectiveReferer = if (referer.isNotBlank()) referer else currentLoadedPageUrl
         val effectiveUa = if (userAgent.isNotBlank()) userAgent else DEFAULT_USER_AGENT
 
@@ -293,6 +381,15 @@ class BackgroundStreamExtractor(private val context: Context) {
         timeoutRunnable = null
     }
 
+    /**
+     * Determines whether a given URL is a direct playable media stream URL.
+     */
+    fun isDirectStreamUrl(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        val lower = url.lowercase().substringBefore('?').substringBefore('#')
+        return lower.endsWith(".m3u8") || lower.endsWith(".mpd")
+    }
+
     fun isMediaStreamUrl(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
         val lower = url.lowercase()
@@ -300,13 +397,12 @@ class BackgroundStreamExtractor(private val context: Context) {
         // Strip query params and fragments to inspect actual file extension
         val path = lower.substringBefore('?').substringBefore('#')
 
-        // Exclude static assets, stylesheets, fonts, and scripts
+        // Exclude standard static assets, stylesheets, fonts, and scripts
         if (path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
             path.endsWith(".gif") || path.endsWith(".css") || path.endsWith(".svg") ||
             path.endsWith(".woff") || path.endsWith(".woff2") || path.endsWith(".ttf") ||
             path.endsWith(".js") || path.endsWith(".html") || path.endsWith(".htm") ||
-            path.endsWith(".php") || path.endsWith(".ico") || path.endsWith(".json") ||
-            path.endsWith(".map")
+            path.endsWith(".ico") || path.endsWith(".json") || path.endsWith(".map")
         ) {
             return false
         }
@@ -321,7 +417,7 @@ class BackgroundStreamExtractor(private val context: Context) {
                 lower.contains("/manifest") ||
                 path.endsWith(".mp4") ||
                 path.endsWith(".m4s") ||
-                path.endsWith(".ts")
+                (path.endsWith(".ts") && lower.contains("/hls/"))
     }
 
     inner class ExtractorBridge {
@@ -337,6 +433,17 @@ class BackgroundStreamExtractor(private val context: Context) {
                 token = activeExtractionToken
             )
         }
+
+        @JavascriptInterface
+        fun onIframeDetected(iframeSrc: String?) {
+            if (iframeSrc.isNullOrBlank()) return
+            val clean = iframeSrc.trim()
+            val lower = clean.lowercase()
+            if (lower.contains("embed") || lower.contains("player") || lower.contains("stream") || lower.contains("live")) {
+                detectedIframeUrl = clean
+                Log.d(TAG, "Recorded potential player iframe URL: $clean")
+            }
+        }
     }
 
     fun destroy() {
@@ -346,7 +453,9 @@ class BackgroundStreamExtractor(private val context: Context) {
             activeErrorCallback = null
             try {
                 webView?.stopLoading()
-                webView?.destroy()
+                if (hostWebView == null) {
+                    webView?.destroy()
+                }
             } catch (_: Exception) {}
             webView = null
         }

@@ -22,7 +22,11 @@ object ChannelRepository {
                 val type = object : TypeToken<List<ChannelItem>>() {}.type
                 val customList: List<ChannelItem>? = gson.fromJson(savedJson, type)
                 if (!customList.isNullOrEmpty()) {
-                    return customList
+                    return customList.map { item ->
+                        if (item.embedUrl.contains(".zu/")) {
+                            item.copy(embedUrl = item.embedUrl.replace(".zu/", ".ru/"))
+                        } else item
+                    }
                 }
             } catch (_: Exception) {}
         }
